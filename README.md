@@ -1,11 +1,5 @@
 This is the final implementation for the SAST Multi Agent Tool
-For using this using API
-#!/bin/bash
-export GROQ_API_KEY="xx"
-# export MISTRAL_API_KEY="xx"
-export OPENROUTER_API_KEY="xx"
-export NVIDIA_API_KEY="xx"
-Just save them in a .sh and just run source followed by file or just set them as environment variable manually
+
 # VulScan- LT
 This is actually a fully Static Application Security that is quite powerful and efficient for finding vulneribilites in real world codebases, for the current implementation it is checking for vulneribilties associated with individual and not when a function is defined somewhere and used somewhere else.
 The project has two core operational modes:
