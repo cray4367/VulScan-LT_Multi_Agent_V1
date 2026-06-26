@@ -2,3 +2,6 @@ If you remove RAG (and thus rag/cwe_index.py), you can drop:
 - faiss-cpu (~50 MB)
 - transformers (~500 MB - 1 GB)
 - torch (~800 MB - 2 
+
+
+This has been dropped in this final release as the resource consumption was our priority over more feature rich product, still the best performing features are kept but the things which felt of not uttermost importance have been trimmed out of the final release
