@@ -14,6 +14,55 @@ from agents.skeptic import run_skeptic
 from models.registry import get_model
 
 
+SINGLE_MODEL_PRESETS = {
+    "best": {
+        "label": "Best Configuration (Recommended)",
+        "models": ["groq-gpt-oss-20b"],
+        "prompts": ["security_audit"],
+        "description": "Single best model + prompt: groq-gpt-oss-20b with security_audit prompt",
+    },
+    "thorough": {
+        "label": "Thorough (All Models & Prompts)",
+        "models": None,
+        "prompts": None,
+        "description": "Runs every model with every prompt template — comprehensive but slower",
+    },
+}
+
+CONFIG_PRESETS = {
+    "best": {
+        "label": "Best Configuration (Recommended)",
+        "discovery_model_key": "auto-gpt-oss-20b",
+        "skeptic_model_key": "auto-gpt-oss-20b",
+        "chain_model_key": "auto-gpt-oss-120b",
+        "discovery_temperature": 0.3,
+        "skeptic_temperature": 0.0,
+        "chain_temperature": 0.0,
+        "description": "Balanced: 20B auto-fallback for high-recall discovery & high-precision skepticism, 120B for deep attack-chain reasoning",
+    },
+    "fast": {
+        "label": "Fast (All 20B)",
+        "discovery_model_key": "auto-gpt-oss-20b",
+        "skeptic_model_key": "auto-gpt-oss-20b",
+        "chain_model_key": "auto-gpt-oss-20b",
+        "discovery_temperature": 0.3,
+        "skeptic_temperature": 0.0,
+        "chain_temperature": 0.0,
+        "description": "Uses 20B model for all three agents — faster but may miss complex attack chains",
+    },
+    "precise": {
+        "label": "Precise (All 120B)",
+        "discovery_model_key": "auto-gpt-oss-120b",
+        "skeptic_model_key": "auto-gpt-oss-120b",
+        "chain_model_key": "auto-gpt-oss-120b",
+        "discovery_temperature": 0.1,
+        "skeptic_temperature": 0.0,
+        "chain_temperature": 0.0,
+        "description": "Uses 120B model for all agents — maximum accuracy, slower and more expensive",
+    },
+}
+
+
 def run_multi_agent_pipeline(
     code,
     discovery_model_key="auto-gpt-oss-20b",

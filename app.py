@@ -11,15 +11,15 @@ import pandas as pd
 import os
 import time
 import json
-import plotly.express as px
-
+#import plotly.express as px
+#plotly is not required after we removed the benchvul evaluation in this tool
 from models.registry import MODEL_REGISTRY, get_model
 from prompts.templates import TEMPLATES, build_prompt
 from data.dir_scanner import scan_directory
 from eval.parser import parse_response
 from main import run_evaluation
 
-from agents.pipeline import run_multi_agent_pipeline
+from agents.pipeline import run_multi_agent_pipeline, CONFIG_PRESETS, SINGLE_MODEL_PRESETS
 from agents.models import report_to_dict, report_to_json, report_summary
 
 st.set_page_config(page_title="IIT Palakkad - Vulnerability Analysis Pipeline", layout="wide")
@@ -32,6 +32,8 @@ for key in ("ask_messages", "scanned_files", "selected_file_indices", "last_resu
 for key in ("basic_single_results", "multi_single_report"):
     if key not in st.session_state:
         st.session_state[key] = None
+
+
 
 # Severity colors for badges
 SEVERITY_COLORS = {
@@ -247,39 +249,71 @@ with st.sidebar:
     mode = st.radio("Pipeline Mode", ["Basic (Single Model)", "Multi-Agent Pipeline"], index=0)
     st.divider()
 
+
     if mode == "Basic (Single Model)":
         st.subheader("Model & Prompt")
-        available_models = list(MODEL_REGISTRY.keys())
-        selected_models = st.multiselect("Select Models", options=available_models, default=["groq-gpt-oss-20b"])
 
-        available_prompts = list(TEMPLATES.keys())
-        selected_prompts = st.multiselect("Select Prompts", options=available_prompts, default=["baseline"])
+        sm_config_mode = st.radio(
+            "Configuration",
+            ["Best Configuration (Recommended)", "Custom"],
+            index=0,
+            key="sm_config_mode",
+        )
+
+        if sm_config_mode == "Best Configuration (Recommended)":
+            sm_preset = SINGLE_MODEL_PRESETS["best"]
+            st.info(sm_preset["description"])
+            selected_models = sm_preset["models"]
+            selected_prompts = sm_preset["prompts"]
+        else:
+            available_models = list(MODEL_REGISTRY.keys())
+            selected_models = st.multiselect(
+                "Select Models", options=available_models, default=["groq-gpt-oss-20b"],
+            )
+            available_prompts = list(TEMPLATES.keys())
+            selected_prompts = st.multiselect(
+                "Select Prompts", options=available_prompts, default=["baseline"],
+            )
     else:
         st.subheader("Agent Configuration")
 
-        model_keys = list(MODEL_REGISTRY.keys())
+        config_mode = st.radio(
+            "Configuration",
+            ["Best Configuration (Recommended)", "Custom"],
+            index=0,
+            key="config_mode",
+        )
 
-        def default_index(key):
-            try:
-                return model_keys.index(key)
-            except ValueError:
-                return 0
+        if config_mode == "Best Configuration (Recommended)":
+            preset = CONFIG_PRESETS["best"]
+            st.info(preset["description"])
+            discovery_model = preset["discovery_model_key"]
+            skeptic_model = preset["skeptic_model_key"]
+            chain_model = preset["chain_model_key"]
+        else:
+            model_keys = list(MODEL_REGISTRY.keys())
 
-        discovery_model = st.selectbox(
-            "Discovery Agent (20B, high recall)",
-            options=model_keys,
-            index=default_index("auto-gpt-oss-20b"),
-        )
-        skeptic_model = st.selectbox(
-            "Skeptic Agent (20B, high precision)",
-            options=model_keys,
-            index=default_index("auto-gpt-oss-20b"),
-        )
-        chain_model = st.selectbox(
-            "Attack Chain Agent (120B, reasoning)",
-            options=model_keys,
-            index=default_index("auto-gpt-oss-120b"),
-        )
+            def default_index(key):
+                try:
+                    return model_keys.index(key)
+                except ValueError:
+                    return 0
+
+            discovery_model = st.selectbox(
+                "Discovery Agent (20B, high recall)",
+                options=model_keys,
+                index=default_index("auto-gpt-oss-20b"),
+            )
+            skeptic_model = st.selectbox(
+                "Skeptic Agent (20B, high precision)",
+                options=model_keys,
+                index=default_index("auto-gpt-oss-20b"),
+            )
+            chain_model = st.selectbox(
+                "Attack Chain Agent (120B, reasoning)",
+                options=model_keys,
+                index=default_index("auto-gpt-oss-120b"),
+            )
 
 # --- MAIN PANEL - INPUT ---
 st.markdown('<p class="section-title">Source Input</p>', unsafe_allow_html=True)
@@ -302,7 +336,7 @@ if input_source == "Paste Code":
 elif input_source == "Upload File":
     uploaded_file = st.file_uploader(
         "Choose a code file",
-        type=["c", "cpp", "cxx", "java", "py", "txt", "js", "ts", "go", "rs", "rb", "php"],
+        type=["c", "cpp", "cxx", "java", "py", "txt", "js", "ts", "go", "rs", "rb", "php","seed"],
     )
     if uploaded_file is not None:
         code_input = uploaded_file.getvalue().decode("utf-8")
@@ -657,18 +691,32 @@ if st.session_state.last_results_context:
     st.markdown("---")
     st.markdown('<p class="section-title">Ask about Results</p>', unsafe_allow_html=True)
 
-    available = list(MODEL_REGISTRY.keys())
     if "ask_model_key" not in st.session_state:
-        st.session_state.ask_model_key = available[0] if available else "groq-gpt-oss-20b"
+        st.session_state.ask_model_key = "auto-gpt-oss-20b"
+    if "ask_config_mode" not in st.session_state:
+        st.session_state.ask_config_mode = "Best Configuration (Recommended)"
 
-    col_ask_m, _ = st.columns([2, 4])
-    with col_ask_m:
-        st.session_state.ask_model_key = st.selectbox(
-            "Model for Q&A",
-            options=available,
-            index=available.index(st.session_state.ask_model_key) if st.session_state.ask_model_key in available else 0,
-            key="ask_model_selector",
+    col_ask1, col_ask2 = st.columns([1, 2])
+    with col_ask1:
+        ask_config_mode = st.radio(
+            "Q&A Model",
+            ["Best Configuration (Recommended)", "Custom"],
+            index=0 if st.session_state.ask_config_mode == "Best Configuration (Recommended)" else 1,
+            key="ask_config_mode",
         )
+    with col_ask2:
+        if ask_config_mode == "Best Configuration (Recommended)":
+            st.session_state.ask_model_key = "auto-gpt-oss-20b"
+            st.info("Using auto-gpt-oss-20b")
+        else:
+            available = list(MODEL_REGISTRY.keys())
+            st.session_state.ask_model_key = st.selectbox(
+                "Custom Model",
+                options=available,
+                index=available.index(st.session_state.ask_model_key) if st.session_state.ask_model_key in available else 0,
+                key="ask_model_selector",
+                label_visibility="collapsed",
+            )
 
     ask_msgs = st.session_state.ask_messages
     for msg in ask_msgs:

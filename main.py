@@ -16,6 +16,7 @@ import json
 import os
 import time
 
+from agents.pipeline import CONFIG_PRESETS, SINGLE_MODEL_PRESETS
 from data.dir_scanner import scan_directory
 from eval.metrics import build_summary_table, compute_metrics
 from eval.parser import parse_response
@@ -106,25 +107,54 @@ def run_evaluation(model_key, prompt_type, data, output_dir, verbose=False, temp
     return metrics
 
 
+def _resolve_multi_agent_config(args):
+    """Resolve model settings: --config preset overrides individual flags."""
+    if args.config:
+        preset = CONFIG_PRESETS[args.config]
+        return {
+            "discovery_model_key": preset["discovery_model_key"],
+            "skeptic_model_key": preset["skeptic_model_key"],
+            "chain_model_key": preset["chain_model_key"],
+            "discovery_temperature": preset["discovery_temperature"],
+            "skeptic_temperature": preset["skeptic_temperature"],
+            "chain_temperature": preset["chain_temperature"],
+        }
+    return {
+        "discovery_model_key": args.discovery_model,
+        "skeptic_model_key": args.skeptic_model,
+        "chain_model_key": args.chain_model,
+        "discovery_temperature": 0.3,
+        "skeptic_temperature": 0.0,
+        "chain_temperature": 0.0,
+    }
+
+
 def _run_multi_agent_file(args):
     """Run the multi-agent pipeline on a single file."""
     from agents.pipeline import run_multi_agent_pipeline
     from agents.models import report_summary
 
+    config = _resolve_multi_agent_config(args)
+
     with open(args.func_file) as f:
         code = f.read()
     print(f"Loaded code from {args.func_file} ({len(code)} chars)")
     print(f"Mode: multi-agent")
-    print(f"  Discovery model:    {args.discovery_model}")
-    print(f"  Skeptic model:      {args.skeptic_model}")
-    print(f"  Attack Chain model: {args.chain_model}")
+    if args.config:
+        print(f"  Config preset:      {args.config} ({CONFIG_PRESETS[args.config]['label']})")
+    print(f"  Discovery model:    {config['discovery_model_key']}")
+    print(f"  Skeptic model:      {config['skeptic_model_key']}")
+    print(f"  Attack Chain model: {config['chain_model_key']}")
     print()
 
     report = run_multi_agent_pipeline(
         code,
-        discovery_model_key=args.discovery_model,
-        skeptic_model_key=args.skeptic_model,
-        chain_model_key=args.chain_model,
+        discovery_model_key=config["discovery_model_key"],
+        skeptic_model_key=config["skeptic_model_key"],
+        chain_model_key=config["chain_model_key"],
+        discovery_temperature=config["discovery_temperature"],
+        skeptic_temperature=config["skeptic_temperature"],
+        chain_temperature=config["chain_temperature"],
         verbose=args.verbose,
     )
 
@@ -145,6 +175,11 @@ def main():
     parser.add_argument(
         "--mode", choices=["basic", "multi-agent"], default="basic",
         help="Pipeline mode: 'basic' (single model) or 'multi-agent' (3-agent pipeline)",
+    )
+    parser.add_argument(
+        "--sm-config", type=str, default=None,
+        choices=list(SINGLE_MODEL_PRESETS.keys()),
+        help="[basic mode] Config preset name (overrides --models and --prompts)",
     )
     parser.add_argument(
         "--models", nargs="+", default=None,
@@ -170,6 +205,11 @@ def main():
     )
     # Multi-agent specific args
     parser.add_argument(
+        "--config", type=str, default=None,
+        choices=list(CONFIG_PRESETS.keys()),
+        help="[multi-agent] Config preset name (overrides individual model flags)",
+    )
+    parser.add_argument(
         "--discovery-model", type=str, default="auto-gpt-oss-20b",
         help="[multi-agent] Model for Discovery Agent",
     )
@@ -191,8 +231,13 @@ def main():
         files = scan_directory(args.scan_dir)
         print(f"Found {len(files)} code files\n")
 
-        models = args.models or list(MODEL_REGISTRY.keys())
-        prompt_types = args.prompts or list(TEMPLATES.keys())
+        if args.sm_config:
+            sm_preset = SINGLE_MODEL_PRESETS[args.sm_config]
+            models = sm_preset["models"] or list(MODEL_REGISTRY.keys())
+            prompt_types = sm_preset["prompts"] or list(TEMPLATES.keys())
+        else:
+            models = args.models or list(MODEL_REGISTRY.keys())
+            prompt_types = args.prompts or list(TEMPLATES.keys())
         results = []
 
         for sf in tqdm(files, desc="Scanning files", unit="file"):
@@ -235,8 +280,14 @@ def main():
     # ============================================================
     # Basic mode
     # ============================================================
-    models = args.models or list(MODEL_REGISTRY.keys())
-    prompt_types = args.prompts or list(TEMPLATES.keys())
+    if args.sm_config:
+        sm_preset = SINGLE_MODEL_PRESETS[args.sm_config]
+        models = sm_preset["models"] or list(MODEL_REGISTRY.keys())
+        prompt_types = sm_preset["prompts"] or list(TEMPLATES.keys())
+        print(f"Config preset: {args.sm_config} ({sm_preset['label']})")
+    else:
+        models = args.models or list(MODEL_REGISTRY.keys())
+        prompt_types = args.prompts or list(TEMPLATES.keys())
 
     if not args.func_file:
         print("Error: --func_file is required in basic mode")

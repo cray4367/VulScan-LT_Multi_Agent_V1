@@ -13,6 +13,7 @@ CODE_EXTENSIONS = {
     ".swift",
     ".kt",
     ".scala",
+    ".seed",
 }
 
 
