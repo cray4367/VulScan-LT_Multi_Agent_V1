@@ -29,6 +29,20 @@ It provides the users a easy to use tool for scanning their source code files fo
 
 One important thing to note is that for our analysis the RAG did not yield any improvements over the security_audit and the chain_of_thought prompt so we are not using it as a primary tool but it still exists and is also consuming the resources, for the removal of this just follow the file RAG_remove.md in the current github repository
 
+## How to run
+
+1 git clone https://github.com/cray4367/VulScan-LT_Multi_Agent_V1.git
+
+2 python -m venv venv && source venv/bin/activate
+
+3 pip install uv
+
+4 uv pip install -r requirements.txt
+
+5 Create the load_env.sh file with appropriate API keys as mentioned in the API.md file  or just the API keys as environment variables.
+
+6 Now just run streamlit run app.py and the application will de deployed.
+
 ## File Strucuture
 The file structure is as follows:
 1 app.py: This is the streamlit frontend for the web application for running the tool
