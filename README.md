@@ -41,7 +41,9 @@ One important thing to note is that for our analysis the RAG did not yield any i
 
 5 Create the load_env.sh file with appropriate API keys as mentioned in the API.md file  or just the API keys as environment variables.
 
-6 Now just run streamlit run app.py and the application will de deployed.
+6 If you are using a .sh file just source filename.sh
+
+7 Now just run streamlit run app.py and the application will de deployed.
 
 ## File Strucuture
 The file structure is as follows:
