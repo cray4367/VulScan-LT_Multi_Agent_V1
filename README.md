@@ -1,4 +1,5 @@
 This is the final implementation for the SAST Multi Agent Tool
+For setting the API keys refer API_keys.md
 
 # VulScan- LT
 This is actually a fully Static Application Security that is quite powerful and efficient for finding vulneribilites in real world codebases, for the current implementation it is checking for vulneribilties associated with individual and not when a function is defined somewhere and used somewhere else.
